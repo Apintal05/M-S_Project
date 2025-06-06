@@ -16,6 +16,9 @@ public class simuladorSismo : MonoBehaviour
     private bool sismoActivo = false;
     private float duracionSismo = 10f;
     private float tiempoTranscurrido = 0f;
+    
+    public delegate void DañoEstructuralHandler(float valorDaño);
+    public static event DañoEstructuralHandler OnDañoEstructural;
 
     void Start()
     {
@@ -98,5 +101,10 @@ public class simuladorSismo : MonoBehaviour
                 frecuenciaObjetivo = 6f;
                 break;
         }
+    }
+
+    public static void ReportarDaño(float valorDaño)
+    {
+        OnDañoEstructural?.Invoke(valorDaño);
     }
 }

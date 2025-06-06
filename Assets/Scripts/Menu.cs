@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -24,6 +23,10 @@ public class Menu : MonoBehaviour
     [Header("Duración del Sismo")]
     public TMP_Dropdown duracionDropdown;
     public TMP_Text contadorTexto;
+
+    [Header("Contador de Daños")]
+    public TMP_Text dañosTexto;
+    private float dañoTotal = 0f;
 
     [Header("Botones")]
     public Button iniciarBoton;
@@ -56,6 +59,16 @@ public class Menu : MonoBehaviour
         ConfigurarFisicasEstables();
         ConfigurarBotones();
         contadorTexto.text = "";
+        dañosTexto.text = "Daño total: 0";
+        
+        // Suscribirse a eventos de daño
+        simuladorSismo.OnDañoEstructural += RegistrarDaño;
+    }
+
+    void OnDestroy()
+    {
+        // Desuscribirse para evitar memory leaks
+        simuladorSismo.OnDañoEstructural -= RegistrarDaño;
     }
 
     void Update()
@@ -100,6 +113,11 @@ public class Menu : MonoBehaviour
             Destroy(estructuraActual);
         }
 
+        // Resetear contadores
+        dañoTotal = 0f;
+        dañosTexto.text = "Daño total: 0";
+        contadorTexto.text = "";
+
         // Configurar magnitud del sismo
         ConfigurarMagnitudSismo();
 
@@ -119,6 +137,9 @@ public class Menu : MonoBehaviour
             // Configurar conexión con el suelo
             ConfigurarConexionSuelo();
             
+            // Configurar materiales y valores de daño
+            ConfigurarElementosEstructurales();
+            
             // Iniciar simulación con duración
             simulador.IniciarSismo(duracion);
             
@@ -132,11 +153,53 @@ public class Menu : MonoBehaviour
         }
     }
 
+    private void ConfigurarElementosEstructurales()
+    {
+        ElementoEstructural.MaterialConstruccion material = new ElementoEstructural.MaterialConstruccion();
+
+        // Determinar material seleccionado
+        if (maderaToggle.isOn)
+        {
+            material.nombre = "Madera";
+            material.valor = 1.0f;
+            material.alturaMaximaCaida = 0.5f;
+        }
+        else if (hormigonToggle.isOn)
+        {
+            material.nombre = "Hormigón";
+            material.valor = 1.5f;
+            material.alturaMaximaCaida = 0.4f;
+        }
+        else if (metalToggle.isOn)
+        {
+            material.nombre = "Metal";
+            material.valor = 2.0f;
+            material.alturaMaximaCaida = 0.6f;
+        }
+
+        // Aplicar a todos los elementos estructurales
+        foreach (Transform child in estructuraActual.transform)
+        {
+            ElementoEstructural elemento = child.GetComponent<ElementoEstructural>();
+            if (elemento != null)
+            {
+                elemento.material = material;
+                
+                // Determinar si es viga o columna por nombre
+                if (child.name.ToLower().Contains("viga"))
+                {
+                    elemento.tipoElemento = ElementoEstructural.TipoElemento.Viga;
+                }
+                else if (child.name.ToLower().Contains("columna"))
+                {
+                    elemento.tipoElemento = ElementoEstructural.TipoElemento.Columna;
+                }
+            }
+        }
+    }
+
     public void DetenerSimulacion()
     {
-        // Mostrar diálogo de confirmación (opcional)
-        // Si implementas diálogo, usa StartCoroutine(ConfirmarDetencion())
-        
         FinalizarSimulacion("Simulación detenida");
     }
 
@@ -156,6 +219,24 @@ public class Menu : MonoBehaviour
     {
         yield return new WaitForSeconds(2f);
         contadorTexto.text = "";
+    }
+
+    private void RegistrarDaño(float valorDaño)
+    {
+        dañoTotal += valorDaño;
+        dañosTexto.text = $"Daño total: {dañoTotal:F1}";
+        
+        // Efecto visual cuando hay daño
+        StartCoroutine(AnimarTextoDaño());
+    }
+
+    private IEnumerator AnimarTextoDaño()
+    {
+        dañosTexto.color = Color.red;
+        dañosTexto.transform.localScale = Vector3.one * 1.2f;
+        yield return new WaitForSeconds(0.5f);
+        dañosTexto.color = Color.white;
+        dañosTexto.transform.localScale = Vector3.one;
     }
 
     private float ObtenerDuracionSeleccionada()
